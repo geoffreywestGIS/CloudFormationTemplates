@@ -1,0 +1,190 @@
+{
+    "Metadata": {
+        "AWS::CloudFormation::Designer": {
+            "da92e53b-bcea-4eb7-a095-98986bf81914": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 140,
+                    "y": -20
+                },
+                "z": 0,
+                "embeds": []
+            },
+            "d49f5357-ee56-482a-a001-f5b56cbfe4ef": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -90,
+                    "y": -40
+                },
+                "z": 0,
+                "embeds": []
+            },
+            "9c6690e2-96bc-4db9-8926-56f6aa88cdec": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -120,
+                    "y": 100
+                },
+                "z": 0,
+                "embeds": []
+            },
+            "22f32564-ccbe-45a2-8b52-2dc7ba245d09": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 90,
+                    "y": 110
+                },
+                "z": 0,
+                "embeds": [],
+                "isassociatedwith": [
+                    "d49f5357-ee56-482a-a001-f5b56cbfe4ef"
+                ]
+            }
+        }
+    },
+    "Resources": {
+        "CloudWatchRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+            "ManagedPolicyArns": [
+                "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                ],
+                "AssumeRolePolicyDocument": {
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                
+                
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "root",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "xray:PutTraceSegments",
+                                        "xray:PutTelemetryRecords",
+                                        "xray:GetSamplingRules",
+                                        "xray:GetSamplingTargets",
+                                        "xray:GetSamplingStatisticSummaries",
+                                        "cloudwatch:PutMetricData",
+                                        "cloudwatch:PutLogEvents",
+                                        "cloudwatch:CreateLogGroup",
+                                        "cloudwatch:CreateLogStream"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "da92e53b-bcea-4eb7-a095-98986bf81914"
+                }
+            }
+        },
+        "LambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.handler",
+                "FunctionName": {
+                    "Ref": "AWS::StackName"
+                },
+                "Role": {
+                    "Fn::GetAtt": [
+                        "CloudWatchRole",
+                        "Arn"
+                    ]
+                },
+                "Code": {
+                    "S3Bucket": "nodejslambdamonitor",
+                    "S3Key": "index.zip"
+                },
+                "Runtime": "nodejs8.10",
+                "Timeout": 25,
+                "TracingConfig": {
+                    "Mode": "Active"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "d49f5357-ee56-482a-a001-f5b56cbfe4ef"
+                }
+            }
+        },
+        "ScheduledRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Description": "ScheduledRule",
+                "ScheduleExpression": "rate(1 minute)",
+                "State": "ENABLED",
+                "Targets": [
+                    {
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "LambdaFunction",
+                                "Arn"
+                            ]
+                        },
+                        "Id": "TargetFunctionV1",
+                        "Input": "{\"targets\": [{\"url\": \"https://www.onica.com\", \"name\": \"onica.com\"}],\"timeout\": 5000,\"namespace\": \"Watchtower\"}"
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "9c6690e2-96bc-4db9-8926-56f6aa88cdec"
+                }
+            }
+        },
+        "PermissionForEventsToInvokeLambda": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Ref": "LambdaFunction"
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "ScheduledRule",
+                        "Arn"
+                    ]
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "22f32564-ccbe-45a2-8b52-2dc7ba245d09"
+                }
+            }
+        }
+    }
+}
